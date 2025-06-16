@@ -18,8 +18,8 @@ app.use(cors({
   origin: [
     'http://localhost:4200', 
     'http://127.0.0.1:4200',
-    'https://blog-frontend.vercel.app',
-    'https://tu-frontend-domain.vercel.app',
+    'https://dazaji-blog.vercel.app',
+    'https://dazaji-blog.vercel.app',
     /\.vercel\.app$/,
     /\.render\.com$/
   ],
