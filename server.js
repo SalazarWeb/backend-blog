@@ -15,7 +15,14 @@ const POSTS_DIR = path.join(__dirname, 'posts');
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:4200', 'http://127.0.0.1:4200'],
+  origin: [
+    'http://localhost:4200', 
+    'http://127.0.0.1:4200',
+    'https://blog-frontend.vercel.app',
+    'https://tu-frontend-domain.vercel.app',
+    /\.vercel\.app$/,
+    /\.render\.com$/
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -340,6 +347,18 @@ app.get('/api/posts/tag/:tag', (req, res) => {
     console.error('Error obteniendo posts por tag:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+});
+
+// Endpoint raíz
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Blog Backend API',
+    version: '1.0.0',
+    endpoints: {
+      posts: '/api/posts',
+      health: '/api/health'
+    }
+  });
 });
 
 // Endpoint de health check
