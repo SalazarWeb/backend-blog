@@ -7,21 +7,22 @@ const { JSDOM } = require('jsdom');
 const dompurify = require('dompurify')(new JSDOM('').window);
 const chokidar = require('chokidar');
 
+marked.setOptions({
+  mangle: false,
+  headerIds: false
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Usar archivos Markdown del backend (nueva ubicación)
+ 
 const POSTS_DIR = path.join(__dirname, 'posts');
-
-// Middleware
+ 
 app.use(cors({
   origin: [
     'http://localhost:4200', 
     'http://127.0.0.1:4200',
     'https://dazaji-blog.vercel.app',
-    'https://dazaji-blog.vercel.app',
     /\.vercel\.app$/,
-    /\.render\.com$/
   ],
   credentials: true
 }));
@@ -30,8 +31,7 @@ app.use(express.json());
 // Caché para mejorar el rendimiento
 const postsCache = {};
 let postsMetadata = [];
-
-// Función para parsear front-matter manualmente (compatible con Angular 16)
+ 
 function parseFrontMatter(content) {
   const frontMatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
   const match = content.match(frontMatterRegex);
@@ -202,7 +202,7 @@ const initializeCache = () => {
         });
     });
   } else {
-    console.warn(`⚠️ Directorio de posts no encontrado: ${POSTS_DIR}`);
+    console.warn(`Directorio de posts no encontrado: ${POSTS_DIR}`);
   }
 };
  
@@ -220,8 +220,8 @@ watcher
 app.get('/api/posts', (req, res) => {
   try { 
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Por defecto devolver todos
-    const offset = (page - 1) * limit;
+    const limit = parseInt(req.query.limit) || (page === 1 ? 6 : 4); // 6 iniciales, luego 4
+    const offset = page === 1 ? 0 : 6 + ((page - 2) * 4); // Ajustar offset para el patrón 6+4+4...
  
     const paginatedPosts = req.query.page 
       ? postsMetadata.slice(offset, offset + limit)
@@ -234,7 +234,7 @@ app.get('/api/posts', (req, res) => {
       page: page,
       limit: limit,
       hasMore: offset + limit < postsMetadata.length,
-      totalPages: Math.ceil(postsMetadata.length / limit)
+      totalPages: Math.ceil((postsMetadata.length - 6) / 4) + 1 // Calcular páginas con patrón 6+4+4...
     });
   } catch (error) {
     console.error('Error obteniendo posts:', error);
@@ -290,6 +290,11 @@ app.get('/api/posts/search/:query', (req, res) => {
     const { query } = req.params;
     const searchTerm = query.toLowerCase();
     
+    // Parámetros de paginación con patrón 6+4+4...
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || (page === 1 ? 6 : 4);
+    const offset = page === 1 ? 0 : 6 + ((page - 2) * 4);
+    
     const filteredPosts = postsMetadata.filter(post => 
       post.title.toLowerCase().includes(searchTerm) ||
       post.summary.toLowerCase().includes(searchTerm) ||
@@ -298,9 +303,16 @@ app.get('/api/posts/search/:query', (req, res) => {
       (postsCache[post.id]?.content || '').toLowerCase().includes(searchTerm)
     );
     
+    // Aplicar paginación a los resultados filtrados
+    const paginatedResults = filteredPosts.slice(offset, offset + limit);
+    
     res.json({
-      posts: filteredPosts,
+      posts: paginatedResults,
       total: filteredPosts.length,
+      page: page,
+      limit: limit,
+      hasMore: offset + limit < filteredPosts.length,
+      totalPages: Math.ceil((filteredPosts.length - 6) / 4) + 1,
       query: searchTerm
     });
   } catch (error) {
@@ -394,8 +406,7 @@ app.listen(PORT, () => {
   console.log(`   GET  /api/posts/tag/:tag - Posts por tag`);
   console.log(`   GET  /api/health - Estado del servidor`);
 });
-
-// Manejo de errores
+ 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
